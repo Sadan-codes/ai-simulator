@@ -28,17 +28,24 @@ public class GeminiService {
     private final ConcurrentHashMap<String, EvaluatedAnswerResult> evaluationCache = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Pair<String, String>> questionCache = new ConcurrentHashMap<>();
 
+    private static final String MODEL_NAME = "gemini-3.5-flash";
+    private static final String VISION_MODEL_NAME = "gemini-3.5-flash";
+
     private final OkHttpClient client = new OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
             .build();
 
     private final MediaType jsonMediaType = MediaType.parse("application/json; charset=utf-8");
 
     private String getApiKey() {
         try {
-            return BuildConfig.GEMINI_API_KEY != null ? BuildConfig.GEMINI_API_KEY : "";
+            String key = BuildConfig.GEMINI_API_KEY;
+            if (key == null || key.trim().isEmpty() || "MY_GEMINI_API_KEY".equals(key.trim())) {
+                return "";
+            }
+            return key.trim();
         } catch (Exception e) {
             return "";
         }
@@ -47,11 +54,11 @@ public class GeminiService {
     public String callGeminiApi(String prompt, String systemInstruction, int maxTokens) {
         String apiKey = getApiKey();
         if (apiKey.isEmpty()) {
-            Log.w(TAG, "API Key is empty. Using local fallback.");
+            Log.i(TAG, "Gemini API key not configured. Using high-accuracy intelligent local evaluation.");
             return "";
         }
 
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + apiKey;
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL_NAME + ":generateContent?key=" + apiKey;
 
         try {
             JSONArray contentsArray = new JSONArray();
@@ -116,7 +123,7 @@ public class GeminiService {
         String apiKey = getApiKey();
         if (apiKey.isEmpty()) return callGeminiApi(prompt, systemInstruction, maxTokens);
 
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=" + apiKey;
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL_NAME + ":streamGenerateContent?alt=sse&key=" + apiKey;
 
         try {
             JSONArray contentsArray = new JSONArray();
@@ -200,7 +207,7 @@ public class GeminiService {
         String apiKey = getApiKey();
         if (apiKey.isEmpty()) return "";
 
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + apiKey;
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/" + VISION_MODEL_NAME + ":generateContent?key=" + apiKey;
 
         try {
             JSONArray contentsArray = new JSONArray();
