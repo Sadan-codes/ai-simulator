@@ -107,12 +107,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 val sessionId = repository.createInterviewSession(
-                    role = role,
-                    difficulty = difficulty,
-                    experienceLevel = experienceLevel,
-                    companyPreset = companyPreset,
-                    questionCount = questionCount,
-                    resumeSkills = skills
+                    role,
+                    difficulty,
+                    experienceLevel,
+                    companyPreset,
+                    questionCount,
+                    skills
                 )
 
                 _currentSessionId.value = sessionId
@@ -165,13 +165,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 val (evaluatedQ, nextQText) = repository.submitAndEvaluateAnswer(
-                    sessionId = sessionId,
-                    questionIndex = questionIndex,
-                    questionId = questionId,
-                    userAnswer = answer,
-                    fillerWordCount = fillerCount,
-                    durationSeconds = durationSeconds,
-                    resumeSkills = skills
+                    sessionId,
+                    questionIndex,
+                    questionId,
+                    answer,
+                    fillerCount,
+                    durationSeconds,
+                    skills
                 )
 
                 val sessionCompleted = nextQText == null
