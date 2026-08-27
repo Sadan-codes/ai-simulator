@@ -1,4 +1,7 @@
-# Configure GitHub Linguist to detect and showcase Java in the repository languages breakdown
-*.kt linguist-detectable=false
-*.kts linguist-detectable=false
-*.java linguist-detectable=true
+# Force GitHub Linguist to show 100% Java
+* linguist-language=Java
+*.kt linguist-vendored
+*.kts linguist-vendored
+*.xml linguist-vendored
+*.json linguist-vendored
+*.java linguist-detectable=true linguist-language=Java
