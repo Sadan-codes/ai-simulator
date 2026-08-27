@@ -8,7 +8,9 @@ import com.example.data.db.UserEntity
 import com.example.data.remote.EvaluatedAnswerResult
 import com.example.data.remote.GeminiService
 import com.example.data.remote.ParsedResumeResult
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 
 class InterviewRepository(
@@ -17,74 +19,88 @@ class InterviewRepository(
 ) {
 
     // User Operations
-    val currentUser: Flow<UserEntity?> = dao.getUser()
+    val currentUser: Flow<UserEntity?> = dao.getUser("default_user")
 
-    suspend fun saveUser(user: UserEntity) {
+    suspend fun saveUser(user: UserEntity) = withContext(Dispatchers.IO) {
         dao.insertUser(user)
     }
 
     // Resume Operations
     val allResumes: Flow<List<ResumeProfileEntity>> = dao.getAllResumes()
 
-    suspend fun getResumeById(id: Long): ResumeProfileEntity? = dao.getResumeById(id)
+    suspend fun getResumeById(id: Long): ResumeProfileEntity? = withContext(Dispatchers.IO) {
+        dao.getResumeById(id)
+    }
 
-    suspend fun parseAndSaveResume(rawText: String, title: String = "Uploaded Resume"): Long {
+    suspend fun parseAndSaveResume(rawText: String, title: String = "Uploaded Resume"): Long = withContext(Dispatchers.IO) {
         val parsed = geminiService.parseResumeText(rawText)
 
         val entity = ResumeProfileEntity(
-            title = if (parsed.candidateName.isNotEmpty()) "${parsed.candidateName}'s Resume" else title,
-            rawText = rawText,
-            candidateName = parsed.candidateName,
-            skillsJson = JSONArray(parsed.skills).toString(),
-            languagesJson = JSONArray(parsed.languages).toString(),
-            frameworksJson = JSONArray(parsed.frameworks).toString(),
-            projectsJson = JSONArray(parsed.projects).toString(),
-            education = parsed.education,
-            yearsExperience = parsed.yearsExperience
+            0,
+            "default_user",
+            if (parsed.candidateName.isNotEmpty()) "${parsed.candidateName}'s Resume" else title,
+            rawText,
+            parsed.candidateName,
+            JSONArray(parsed.skills).toString(),
+            JSONArray(parsed.languages).toString(),
+            JSONArray(parsed.frameworks).toString(),
+            JSONArray(parsed.projects).toString(),
+            parsed.education,
+            parsed.yearsExperience,
+            System.currentTimeMillis()
         )
 
         val resumeId = dao.insertResume(entity)
 
         // Set active resume for user
         val user = UserEntity(
-            id = "default_user",
-            name = if (parsed.candidateName.isNotEmpty()) parsed.candidateName else "Candidate",
-            activeResumeId = resumeId
+            "default_user",
+            if (parsed.candidateName.isNotEmpty()) parsed.candidateName else "Candidate",
+            "alex@example.com",
+            "Software Engineer",
+            resumeId,
+            System.currentTimeMillis()
         )
         dao.insertUser(user)
 
-        return resumeId
+        resumeId
     }
 
-    suspend fun parseAndSaveResumeImage(base64Jpeg: String, title: String = "Uploaded Resume Photo"): Long {
+    suspend fun parseAndSaveResumeImage(base64Jpeg: String, title: String = "Uploaded Resume Photo"): Long = withContext(Dispatchers.IO) {
         val parsed = geminiService.parseResumeImage(base64Jpeg)
 
         val entity = ResumeProfileEntity(
-            title = if (parsed.candidateName.isNotEmpty()) "${parsed.candidateName}'s Resume Photo" else title,
-            rawText = "Photo of Resume parsed via Gemini Vision AI.\nSkills: ${parsed.skills.joinToString()}\nLanguages: ${parsed.languages.joinToString()}\nFrameworks: ${parsed.frameworks.joinToString()}\nEducation: ${parsed.education}",
-            candidateName = parsed.candidateName,
-            skillsJson = JSONArray(parsed.skills).toString(),
-            languagesJson = JSONArray(parsed.languages).toString(),
-            frameworksJson = JSONArray(parsed.frameworks).toString(),
-            projectsJson = JSONArray(parsed.projects).toString(),
-            education = parsed.education,
-            yearsExperience = parsed.yearsExperience
+            0,
+            "default_user",
+            if (parsed.candidateName.isNotEmpty()) "${parsed.candidateName}'s Resume Photo" else title,
+            "Photo of Resume parsed via Gemini Vision AI.\nSkills: ${parsed.skills.joinToString()}\nLanguages: ${parsed.languages.joinToString()}\nFrameworks: ${parsed.frameworks.joinToString()}\nEducation: ${parsed.education}",
+            parsed.candidateName,
+            JSONArray(parsed.skills).toString(),
+            JSONArray(parsed.languages).toString(),
+            JSONArray(parsed.frameworks).toString(),
+            JSONArray(parsed.projects).toString(),
+            parsed.education,
+            parsed.yearsExperience,
+            System.currentTimeMillis()
         )
 
         val resumeId = dao.insertResume(entity)
 
         // Set active resume for user
         val user = UserEntity(
-            id = "default_user",
-            name = if (parsed.candidateName.isNotEmpty()) parsed.candidateName else "Candidate",
-            activeResumeId = resumeId
+            "default_user",
+            if (parsed.candidateName.isNotEmpty()) parsed.candidateName else "Candidate",
+            "alex@example.com",
+            "Software Engineer",
+            resumeId,
+            System.currentTimeMillis()
         )
         dao.insertUser(user)
 
-        return resumeId
+        resumeId
     }
 
-    suspend fun deleteResume(id: Long) {
+    suspend fun deleteResume(id: Long) = withContext(Dispatchers.IO) {
         dao.deleteResumeById(id)
     }
 
@@ -103,38 +119,65 @@ class InterviewRepository(
         companyPreset: String,
         questionCount: Int = 5,
         resumeSkills: List<String>
-    ): Long {
+    ): Long = withContext(Dispatchers.IO) {
         val sessionEntity = InterviewSessionEntity(
-            role = role,
-            difficulty = difficulty,
-            experienceLevel = experienceLevel,
-            companyPreset = companyPreset,
-            questionCount = questionCount
+            0,
+            "default_user",
+            role,
+            difficulty,
+            experienceLevel,
+            companyPreset,
+            questionCount,
+            0,
+            "Pending",
+            "",
+            0,
+            0,
+            0,
+            0,
+            0,
+            "[]",
+            false,
+            System.currentTimeMillis()
         )
 
         val sessionId = dao.insertSession(sessionEntity)
 
         // Generate the first question right away
         val (firstQuestionText, firstCategory) = geminiService.generateQuestion(
-            role = role,
-            difficulty = difficulty,
-            experienceLevel = experienceLevel,
-            companyPreset = companyPreset,
-            questionIndex = 1,
-            totalQuestions = questionCount,
-            resumeSkills = resumeSkills
+            role,
+            difficulty,
+            experienceLevel,
+            companyPreset,
+            1,
+            questionCount,
+            resumeSkills
         )
 
         val firstQuestion = InterviewQuestionEntity(
-            sessionId = sessionId,
-            questionIndex = 1,
-            questionText = firstQuestionText,
-            category = firstCategory
+            0,
+            sessionId,
+            1,
+            firstQuestionText,
+            firstCategory,
+            "",
+            "",
+            0,
+            0,
+            0,
+            0,
+            0,
+            "[]",
+            "[]",
+            "",
+            0,
+            0,
+            false
         )
 
         dao.insertQuestion(firstQuestion)
 
-        return sessionId
+        sessionId
     }
 
     suspend fun submitAndEvaluateAnswer(
@@ -145,9 +188,9 @@ class InterviewRepository(
         fillerWordCount: Int,
         durationSeconds: Int,
         resumeSkills: List<String>
-    ): Pair<InterviewQuestionEntity, String?> { // Pair(EvaluatedQuestion, NextQuestionTextIfAny)
-        val session = dao.getSessionSync(sessionId) ?: return Pair(
-            InterviewQuestionEntity(sessionId = sessionId, questionIndex = questionIndex, questionText = ""), null
+    ): Pair<InterviewQuestionEntity, String?> = withContext(Dispatchers.IO) { // Pair(EvaluatedQuestion, NextQuestionTextIfAny)
+        val session = dao.getSessionSync(sessionId) ?: return@withContext Pair(
+            InterviewQuestionEntity(0, sessionId, questionIndex, "", "Technical", "", "", 0, 0, 0, 0, 0, "[]", "[]", "", 0, 0, false), null
         )
 
         val existingQuestions = dao.getQuestionsForSessionSync(sessionId)
@@ -157,31 +200,33 @@ class InterviewRepository(
         val questionText = currentQuestionObj?.questionText ?: ""
 
         val evaluation = geminiService.evaluateAnswer(
-            role = session.role,
-            question = questionText,
-            userAnswer = userAnswer,
-            resumeSkills = resumeSkills,
-            fillerWordCount = fillerWordCount
+            session.role,
+            questionText,
+            userAnswer,
+            resumeSkills,
+            fillerWordCount
         )
 
-        val updatedQuestion = (currentQuestionObj ?: InterviewQuestionEntity(
-            sessionId = sessionId,
-            questionIndex = questionIndex,
-            questionText = questionText
-        )).copy(
-            userAnswer = userAnswer,
-            feedback = evaluation.feedback,
-            score = evaluation.overallScore,
-            technicalAccuracyScore = evaluation.technicalAccuracy,
-            communicationScore = evaluation.communication,
-            problemSolvingScore = evaluation.problemSolving,
-            confidenceScore = evaluation.confidence,
-            strengthsJson = JSONArray(evaluation.strengths).toString(),
-            weaknessesJson = JSONArray(evaluation.weaknesses).toString(),
-            idealAnswer = evaluation.idealAnswer,
-            fillerWordCount = fillerWordCount,
-            durationSeconds = durationSeconds,
-            isEvaluated = true
+        val targetQId = currentQuestionObj?.id ?: 0L
+        val updatedQuestion = InterviewQuestionEntity(
+            targetQId,
+            sessionId,
+            questionIndex,
+            questionText,
+            currentQuestionObj?.category ?: "Technical",
+            userAnswer,
+            evaluation.feedback,
+            evaluation.overallScore,
+            evaluation.technicalAccuracy,
+            evaluation.communication,
+            evaluation.problemSolving,
+            evaluation.confidence,
+            JSONArray(evaluation.strengths).toString(),
+            JSONArray(evaluation.weaknesses).toString(),
+            evaluation.idealAnswer,
+            fillerWordCount,
+            durationSeconds,
+            true
         )
 
         dao.updateQuestion(updatedQuestion)
@@ -191,22 +236,36 @@ class InterviewRepository(
         if (questionIndex < session.questionCount) {
             val nextIndex = questionIndex + 1
             val (nextQText, nextCat) = geminiService.generateQuestion(
-                role = session.role,
-                difficulty = session.difficulty,
-                experienceLevel = session.experienceLevel,
-                companyPreset = session.companyPreset,
-                questionIndex = nextIndex,
-                totalQuestions = session.questionCount,
-                resumeSkills = resumeSkills,
-                previousQuestion = questionText,
-                previousAnswer = userAnswer
+                session.role,
+                session.difficulty,
+                session.experienceLevel,
+                session.companyPreset,
+                nextIndex,
+                session.questionCount,
+                resumeSkills,
+                questionText,
+                userAnswer
             )
 
             val nextQuestionObj = InterviewQuestionEntity(
-                sessionId = sessionId,
-                questionIndex = nextIndex,
-                questionText = nextQText,
-                category = nextCat
+                0,
+                sessionId,
+                nextIndex,
+                nextQText,
+                nextCat,
+                "",
+                "",
+                0,
+                0,
+                0,
+                0,
+                0,
+                "[]",
+                "[]",
+                "",
+                0,
+                0,
+                false
             )
 
             dao.insertQuestion(nextQuestionObj)
@@ -216,55 +275,63 @@ class InterviewRepository(
             finalizeSessionReport(sessionId)
         }
 
-        return Pair(updatedQuestion, nextQuestionText)
+        Pair(updatedQuestion, nextQuestionText)
     }
 
-    private suspend fun finalizeSessionReport(sessionId: Long) {
-        val session = dao.getSessionSync(sessionId) ?: return
+    private suspend fun finalizeSessionReport(sessionId: Long) = withContext(Dispatchers.IO) {
+        val session = dao.getSessionSync(sessionId) ?: return@withContext
         val questions = dao.getQuestionsForSessionSync(sessionId)
 
         val qaPairs = questions.map { Pair(it.questionText, it.userAnswer) }
         val evaluations = questions.map { q ->
             EvaluatedAnswerResult(
-                overallScore = q.score,
-                technicalAccuracy = q.technicalAccuracyScore,
-                communication = q.communicationScore,
-                problemSolving = q.problemSolvingScore,
-                confidence = q.confidenceScore,
-                feedback = q.feedback,
-                strengths = emptyList(),
-                weaknesses = emptyList(),
-                idealAnswer = q.idealAnswer
+                q.score,
+                q.technicalAccuracyScore,
+                q.communicationScore,
+                q.problemSolvingScore,
+                q.confidenceScore,
+                q.feedback,
+                emptyList(),
+                emptyList(),
+                q.idealAnswer
             )
         }
 
         val totalFillers = questions.sumOf { it.fillerWordCount }
 
         val report = geminiService.generateSessionReport(
-            role = session.role,
-            companyPreset = session.companyPreset,
-            questionsAndAnswers = qaPairs,
-            evaluations = evaluations,
-            totalFillerWords = totalFillers
+            session.role,
+            session.companyPreset,
+            qaPairs,
+            evaluations,
+            totalFillers
         )
 
-        val updatedSession = session.copy(
-            overallScore = report.overallScore,
-            verdict = report.verdict,
-            summaryFeedback = report.summaryFeedback,
-            fillerWordTotal = totalFillers,
-            confidenceAvgScore = report.confidenceScore,
-            technicalScore = report.technicalScore,
-            communicationScore = report.communicationScore,
-            problemSolvingScore = report.problemSolvingScore,
-            roadmapJson = JSONArray(report.learningRoadmap).toString(),
-            isCompleted = true
+        val updatedSession = InterviewSessionEntity(
+            session.id,
+            session.userId,
+            session.role,
+            session.difficulty,
+            session.experienceLevel,
+            session.companyPreset,
+            session.questionCount,
+            report.overallScore,
+            report.verdict,
+            report.summaryFeedback,
+            totalFillers,
+            report.confidenceScore,
+            report.technicalScore,
+            report.communicationScore,
+            report.problemSolvingScore,
+            JSONArray(report.learningRoadmap).toString(),
+            true,
+            session.createdAt
         )
 
         dao.updateSession(updatedSession)
     }
 
-    suspend fun deleteSession(sessionId: Long) {
+    suspend fun deleteSession(sessionId: Long) = withContext(Dispatchers.IO) {
         dao.deleteSession(sessionId)
     }
 }
